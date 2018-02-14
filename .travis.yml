@@ -1,99 +1,90 @@
-deploy:
-    provider: heroku
-    api_key:
-        secure: "b1744903-1374-4649-8668-6f01ab5c1f72"
 sudo: false
-
 env:
   global:
-    - TRAVIS_DB=cfp_test
-    - CC_TEST_REPORTER_ID=9deb249b01a414d979959cfd05a4c351b19a5959858653b20276454d4189edc3
-
-# cache composer downloads so installing is quicker
+  - TRAVIS_DB=cfp_test
+  - CC_TEST_REPORTER_ID=9deb249b01a414d979959cfd05a4c351b19a5959858653b20276454d4189edc3
 cache:
   yarn: true
   directories:
-    - $HOME/.composer/cache
-
+  - "$HOME/.composer/cache"
 stages:
-  - style
-  - test
-  - asset
-
+- style
+- test
+- asset
 jobs:
   include:
-    - stage: Style
-
-      language: php
-
-      php: 7.0
-
-      before_install:
-        - phpenv config-rm xdebug.ini
-        - composer validate --no-check-publish
-
-      install:
-        - composer install
-
-      script:
-        - if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then COMMIT_RANGE=$TRAVIS_COMMIT_RANGE; else COMMIT_RANGE="HEAD~..HEAD"; fi;
-        - CHANGED_FILES=$(git diff --name-only --diff-filter=ACMRTUXB "${COMMIT_RANGE}")
-        - if ! echo "${CHANGED_FILES}" | grep -qE "^(\\.php_cs(\\.dist)?|composer\\.lock)$"; then IFS=$'\n' EXTRA_ARGS=('--path-mode=intersection' '--' ${CHANGED_FILES[@]}); fi
-        - vendor/bin/php-cs-fixer fix --config=.php_cs.dist --dry-run --diff -v --using-cache=no "${EXTRA_ARGS[@]}"
-
-    - &TEST
-
-      stage: Test
-
-      language: php
-
-      php: 7.0
-
-      before_install:
-        - source .travis/xdebug.sh
-        - xdebug-disable
-        - composer validate --no-check-publish
-
-      install:
-        - composer install
-
-      before_script:
-        - source .travis/code-climate.sh
-        - sh .travis/setup-mail.sh
-        - mysql -e "CREATE DATABASE $TRAVIS_DB" -uroot
-        - cp config/testing.yml.dist config/testing.yml
-        - CFP_ENV=testing vendor/bin/phinx migrate --environment testing
-        - mysqldump -uroot $TRAVIS_DB > tests/dump.sql
-        - if [[ "$WITH_COVERAGE" == "true" ]]; then code-climate-before-script; fi
-
-      script:
-        - vendor/bin/phpunit --testsuite integration
-        - if [[ "$WITH_COVERAGE" == "true" ]]; then xdebug-enable; fi
-        - if [[ "$WITH_COVERAGE" == "true" ]]; then vendor/bin/phpunit --testsuite unit --coverage-clover build/logs/clover.xml; else vendor/bin/phpunit --testsuite unit; fi
-        - if [[ "$WITH_COVERAGE" == "true" ]]; then xdebug-disable; fi
-
-      after_success:
-        - if [[ "$WITH_COVERAGE" == "true" ]]; then code-climate-after-script; fi
-
-    - <<: *TEST
-
-      php: 7.1
-
-      env:
-        - WITH_COVERAGE=true
-
-    - <<: *TEST
-
-      php: 7.2
-
-    - stage: Asset
-
-      language: node_js
-
-      node_js: 8.8.1
-
-      install:
-        - yarn install
-
-      script:
-        - yarn run production
+  - stage: Style
+    language: php
+    php: 7.0
+    before_install:
+    - phpenv config-rm xdebug.ini
+    - composer validate --no-check-publish
+    install:
+    - composer install
+    script:
+    - if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then COMMIT_RANGE=$TRAVIS_COMMIT_RANGE;
+      else COMMIT_RANGE="HEAD~..HEAD"; fi;
+    - CHANGED_FILES=$(git diff --name-only --diff-filter=ACMRTUXB "${COMMIT_RANGE}")
+    - if ! echo "${CHANGED_FILES}" | grep -qE "^(\\.php_cs(\\.dist)?|composer\\.lock)$";
+      then IFS=$'\n' EXTRA_ARGS=('--path-mode=intersection' '--' ${CHANGED_FILES[@]});
+      fi
+    - vendor/bin/php-cs-fixer fix --config=.php_cs.dist --dry-run --diff -v --using-cache=no
+      "${EXTRA_ARGS[@]}"
+  - stage: Test
+    language: php
+    php: 7.0
+    before_install: &1
+    - source .travis/xdebug.sh
+    - xdebug-disable
+    - composer validate --no-check-publish
+    install: &2
+    - composer install
+    before_script: &3
+    - source .travis/code-climate.sh
+    - sh .travis/setup-mail.sh
+    - mysql -e "CREATE DATABASE $TRAVIS_DB" -uroot
+    - cp config/testing.yml.dist config/testing.yml
+    - CFP_ENV=testing vendor/bin/phinx migrate --environment testing
+    - mysqldump -uroot $TRAVIS_DB > tests/dump.sql
+    - if [[ "$WITH_COVERAGE" == "true" ]]; then code-climate-before-script; fi
+    script: &4
+    - vendor/bin/phpunit --testsuite integration
+    - if [[ "$WITH_COVERAGE" == "true" ]]; then xdebug-enable; fi
+    - if [[ "$WITH_COVERAGE" == "true" ]]; then vendor/bin/phpunit --testsuite unit
+      --coverage-clover build/logs/clover.xml; else vendor/bin/phpunit --testsuite
+      unit; fi
+    - if [[ "$WITH_COVERAGE" == "true" ]]; then xdebug-disable; fi
+    after_success: &5
+    - if [[ "$WITH_COVERAGE" == "true" ]]; then code-climate-after-script; fi
+  - stage: Test
+    language: php
+    php: 7.1
+    before_install: *1
+    install: *2
+    before_script: *3
+    script: *4
+    after_success: *5
+    env:
+    - WITH_COVERAGE=true
+  - stage: Test
+    language: php
+    php: 7.2
+    before_install: *1
+    install: *2
+    before_script: *3
+    script: *4
+    after_success: *5
+  - stage: Asset
+    language: node_js
+    node_js: 8.8.1
+    install:
+    - yarn install
+    script:
+    - yarn run production
+deploy:
+  provider: heroku
+  api_key:
+    secure: hpZ9LweOKjCMEtIHN4BTFCxhSZrCCLZx5i1Up5yIvhZvIP2Pv0rD1aRsROEKAyErfH923IYDoL4x2Jtf90JjCAP+2gFM6ia/ICGc3OIjt8Nj2+KA40XC6wEZcVlDOf+u894gmSelYxu/9UsQ5QgP0AndcteqFMmEqNmZ9Yl+FKLa4+txU0Bcw8iUMTHU1sV0vpXDZQ53d38pp2DYuLgQHsqmqIpIa7JE0QVLDJWhJEhS2TIn259wkHjSjN3fuQTjDi/hFiKu4NPk5ksP/RlUT/cGYVp/0pw8BWLPYt1JW1EB6ojUqEae+NP65sn9wtQfaAgjx2YTmkoGcpI4i01G2jHURtYdjPJpO5cdbNoDyLcPAtR9Ew3cNeGZNobhMN5ciiABkQ2eznmTttQUr6OrV8NSn6yXLJUb3bElOLEH6PNtCb9SvmITWhATIcOwXapTrYSa/cFDrFtSJ9B9nXNdYbqpglPZ/fNoXuDcL9y7JouCWqmWtStDuaA8XuC7pdElMH77ez2brrBlHzyfngV1kXgnqi+pvKn5X1LszjxSOmiXj/i0RcthiHG9EGDBXvwWewAQTsbxAllQinTSsdXYbcDrTmtakLsBA1R2ZRH22ygUrRdMmfaB5FUbrwF1BNAxFv6XEzk0tRuFf3vghNX2kpqb5hoT/M/ABVE4IvjNYGE=
+  app: opencfgteddymeksavanh
+  on:
+    repo: teddymeksavanh/opencfp

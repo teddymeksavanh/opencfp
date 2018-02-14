@@ -1,4 +1,7 @@
-
+deploy:
+    provider: heroku
+    api_key:
+        secure: "b1744903-1374-4649-8668-6f01ab5c1f72"
 sudo: false
 
 env:
